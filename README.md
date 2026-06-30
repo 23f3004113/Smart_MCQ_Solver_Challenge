@@ -73,12 +73,54 @@ Status: **Completed**
 
 ---
 
+### Milestone 2 (Completed)
+
+Topics Covered:
+
+* Hugging Face Datasets
+* Hugging Face Transformers
+* Sentence Transformers (MiniLM)
+* Dense Vector Retrieval
+* Zero-shot Classification
+* FLAN-T5 Small Language Model
+* Prompt Engineering
+* Modular Python Package Design
+
+Tasks Completed:
+
+* Loaded datasets using the Hugging Face Datasets library
+* Created combined text features using the `.map()` function
+* Computed dataset statistics and text lengths
+* Implemented semantic retrieval using MiniLM sentence embeddings
+* Ranked answer options using cosine similarity
+* Compared TF-IDF and MiniLM retrieval performance
+* Implemented Zero-shot Classification using `facebook/bart-large-mnli`
+* Compared Softmax and Independent Sigmoid (`multi_label=True`) scoring
+* Loaded and used `google/flan-t5-small` for answer generation
+* Generated answers through prompt engineering
+* Refactored reusable code into the `src/` package
+* Organized the project into modular components (`tfidf.py`, `minilm.py`, `zero_shot.py`, `flan_t5.py`)
+* Submitted Milestone 2 responses
+
+Status: **Completed**
+
+---
+
 ## Technologies Used
 
+### Programming Language
 * Python
+
+### Libraries and Frameworks
 * Pandas
 * NumPy
 * Scikit-learn
+* PyTorch
+* Hugging Face Datasets
+* Hugging Face Transformers
+* Sentence Transformers
+
+### Development Environment
 * Kaggle Notebooks
 * GitHub
 
