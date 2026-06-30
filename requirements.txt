@@ -1,5 +1,9 @@
-numpy
-pandas
-scikit-learn
-matplotlib
-jupyter
+datasets==2.20.0
+transformers==4.52.0
+torch==2.3.1
+scikit-learn==1.5.1
+sentence-transformers==3.0.1
+pandas==2.2.2
+numpy==1.26.4
+accelerate==0.33.0
+tqdm==4.66.4
