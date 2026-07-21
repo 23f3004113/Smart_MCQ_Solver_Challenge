@@ -32,13 +32,18 @@ Smart_MCQ_Solver_Challenge/
 │   ├── milestone1.ipynb
 │   ├── milestone2.ipynb
 │   ├── milestone3.ipynb
-│   └── milestone4.ipynb
+│   ├── milestone4.ipynb
+│   └── milestone5.ipynb
 │
 ├── src/
 │
 ├── models/
+│   ├── deberta/
+│   └── roberta/
 │
 ├── reports/
+│
+├── submission.csv
 │
 ├── README.md
 │
@@ -167,6 +172,54 @@ Smart_MCQ_Solver_Challenge/
 
 ---
 
+### Milestone 5 (Completed)
+
+#### Topics Covered
+
+- Fine-Tuned Transformer Model Inference
+- DeBERTa Multiple Choice Classification
+- RoBERTa Multiple Choice Classification
+- Softmax Probability Estimation
+- Probability Ensembling Techniques
+- Weighted Model Ensembling
+- Test-Time Augmentation (TTA)
+- Confidence Score Analysis
+- Top-3 Ranking Generation
+- Kaggle Submission Pipeline
+- MAP@3 Evaluation
+
+#### Tasks Completed
+
+- Loaded fine-tuned DeBERTa and RoBERTa multiple-choice models.
+- Performed inference on individual MCQ samples.
+- Converted model logits into class probabilities using Softmax.
+- Compared predictions from DeBERTa and RoBERTa models.
+- Implemented simple probability averaging for model ensembling.
+- Implemented weighted probability averaging using:
+  - DeBERTa weight = 0.70
+  - RoBERTa weight = 0.30
+- Generated ranked Top-3 answer predictions in Kaggle submission format.
+- Built the complete weighted ensemble inference pipeline for the test dataset.
+- Generated `submission.csv` files compatible with the Kaggle competition requirements.
+- Applied Test-Time Augmentation (TTA) using instruction-augmented prompts.
+- Compared Top-1 predictions between:
+  - DeBERTa
+  - Weighted Ensemble
+- Computed confidence gains obtained after ensembling.
+- Compared ordered Top-3 rankings before and after ensembling.
+- Evaluated weighted ensemble predictions using MAP@3 on validation samples.
+- Performed model confidence and ranking analyses across multiple samples.
+
+#### Models Used
+
+- Fine-Tuned DeBERTa Multiple Choice Model
+- Fine-Tuned RoBERTa Multiple Choice Model
+- Weighted Ensemble Model (DeBERTa + RoBERTa)
+
+**Status:** Completed
+
+---
+
 ## Technologies Used
 
 ### Programming Language
@@ -187,13 +240,24 @@ Smart_MCQ_Solver_Challenge/
 - Datasets
 - Evaluate
 
+### Additional Libraries
+
+- PEFT
+- Transformers
+- Accelerate
+- Evaluate
+- Tokenizers
+
 ### Deep Learning Models
 
 - BERT Base Uncased
-- MiniLM
+- MiniLM Sentence Transformer
 - FLAN-T5 Small
 - BART Large MNLI
-- LoRA Fine-Tuned Multiple Choice Models
+- LoRA Fine-Tuned BERT Multiple Choice Model
+- Fine-Tuned DeBERTa Multiple Choice Model
+- Fine-Tuned RoBERTa Multiple Choice Model
+- Weighted Ensemble Model (DeBERTa + RoBERTa)
 
 ### Development Environment
 
