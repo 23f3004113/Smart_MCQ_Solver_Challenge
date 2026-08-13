@@ -2,304 +2,792 @@
 
 ## Student Details
 
-- **Name:** Ayush Sur
-- **Roll Number:** 23f3004113
-- **Program:** IIT Madras BS Degree in Data Science and Applications
-- **Course:** Introduction to Deep Learning and Generative AI Project (May Term 2026 - T2 Term)
+* **Name:** Ayush Sur
+* **Roll Number:** 23f3004113
+* **Program:** IIT Madras BS Degree in Data Science and Applications
+* **Course:** Introduction to Deep Learning and Generative AI Project
+* **Term:** May Term 2026 (T2-2026)
+* **Kaggle ID:** `ayushsur2003`
 
 ---
 
-## Project Overview
+# Project Overview
 
-This repository contains the implementation of the **Smart MCQ Solver Challenge**, a Deep Learning and Generative AI project conducted as part of the IIT Madras BS Degree program.
+This repository contains the final implementation of the **Smart MCQ Solver Challenge**, developed as part of the IIT Madras BS Degree in Data Science and Applications.
 
-The objective of the project is to build intelligent systems capable of predicting and ranking the most probable answers for multiple-choice questions using Natural Language Processing (NLP), Information Retrieval, Transformer-based architectures, and parameter-efficient fine-tuning techniques.
+The objective of the competition is to predict and rank the most probable answers for multiple-choice questions. Each question contains **five candidate options (A, B, C, D, E)**, and the system must return the **top three ranked options**.
 
-The evaluation metric used in the competition is **Mean Average Precision at 3 (MAP@3)**.
+The primary competition evaluation metric is **Mean Average Precision at 3 (MAP@3)**.
+
+The project follows an end-to-end NLP and Deep Learning workflow:
+
+1. Exploratory Data Analysis
+2. Data preprocessing and feature construction
+3. TF-IDF representation
+4. Custom neural network trained from scratch
+5. Fine-tuning of BERT
+6. Fine-tuning of RoBERTa
+7. Validation using Accuracy, Macro F1 and MAP@3
+8. Top-3 prediction generation
+9. Kaggle submission generation
+10. Model comparison and final model selection
+11. RoBERTa-based deployment
+
+The final model selected for submission is **RoBERTa-base**.
 
 ---
 
-## Repository Structure
+# Problem Statement
+
+For every MCQ, the model receives:
+
+* A question/prompt
+* Five candidate answers: A, B, C, D and E
+
+The model produces a score for each of the five choices. These scores are converted into a ranking, and the three highest-ranked options are submitted.
+
+The competition therefore evaluates both:
+
+* **Classification performance**
+* **Ranking quality**
+
+MAP@3 is particularly important because the correct answer receives partial credit when it appears at rank 2 or rank 3.
+
+---
+
+# Dataset
+
+The dataset consists of:
+
+| Split      | Samples | Purpose          |
+| ---------- | ------: | ---------------- |
+| Training   |   1,406 | Model training   |
+| Validation |     352 | Model evaluation |
+| Test       |     500 | Kaggle inference |
+
+The training data contains the correct answer label, while the test data is used to generate the Kaggle submission.
+
+The final notebook uses a stratified **80:20 train-validation split** with:
+
+```text
+random_state = 42
+stratify = label
+```
+
+This produces:
+
+```text
+Training   : 1,406
+Validation :   352
+Test       :   500
+```
+
+---
+
+# Data Preprocessing
+
+The final preprocessing pipeline was implemented directly in the final notebook.
+
+## 1. Missing Value Checks
+
+Missing values were checked separately for the training and test datasets.
+
+## 2. Duplicate MCQ Removal
+
+Duplicate questions were examined and duplicate MCQs were removed using the complete set of question and answer-option columns.
+
+The preprocessing first removes duplicate rows based on:
+
+```text
+prompt, A, B, C, D, E
+```
+
+Duplicate prompts are subsequently removed to ensure that the same prompt does not appear multiple times in the training data.
+
+## 3. Combined Text Construction
+
+For the TF-IDF model, the question and all five candidate options are combined into a single text representation.
+
+The final construction is conceptually:
+
+```text
+prompt
+A
+B
+C
+D
+E
+```
+
+The same combined-text construction is applied to both training and test data.
+
+## 4. Label Encoding
+
+The answer labels are encoded as:
+
+```text
+A → 0
+B → 1
+C → 2
+D → 3
+E → 4
+```
+
+The reverse mapping is also maintained for generating Kaggle predictions.
+
+## 5. Duplicate and Leakage Checks
+
+The notebook also checks:
+
+* Duplicate prompts
+* Duplicate combined text
+* Conflicting labels for identical combined text
+* Test prompts appearing in the training set
+* Test combined text appearing in the training set
+
+These checks were used to verify the dataset before model training.
+
+---
+
+# Model Architecture
+
+The final project contains three model families.
+
+```text
+                         Smart MCQ Solver
+                               |
+              +----------------+----------------+
+              |                |                |
+              v                v                v
+        TF-IDF + NN          BERT           RoBERTa
+        Scratch Model      Pretrained       Pretrained
+              |                |                |
+              +----------------+----------------+
+                               |
+                               v
+                       Top-3 Ranking
+                               |
+                               v
+                            MAP@3
+```
+
+---
+
+# Model 1 — TF-IDF + Neural Network
+
+The first deep learning model is a custom feed-forward neural network trained from scratch using TF-IDF features.
+
+This model replaced the earlier Logistic Regression approach.
+
+## TF-IDF Configuration
+
+The final notebook uses:
+
+```python
+TfidfVectorizer(
+    lowercase=True,
+    ngram_range=(1, 3),
+    max_features=100000,
+    min_df=2,
+    sublinear_tf=True
+)
+```
+
+Although the maximum vocabulary size is configured as 100,000, the fitted vectorizer produces **27,489 actual features** for the training data.
+
+The TF-IDF matrices are converted to `float32` dense NumPy arrays before being passed to PyTorch.
+
+## Neural Network Architecture
+
+```text
+TF-IDF
+27,489 features
+      |
+      v
+Linear
+27,489 → 256
+      |
+     ReLU
+      |
+Dropout = 0.30
+      |
+      v
+Linear
+256 → 64
+      |
+     ReLU
+      |
+Dropout = 0.20
+      |
+      v
+Linear
+64 → 5
+      |
+      v
+Five class logits
+      |
+      v
+Top-3 ranking
+```
+
+The network is implemented using PyTorch.
+
+## Training Configuration
+
+| Parameter      | Value            |
+| -------------- | ---------------- |
+| Input features | 27,489           |
+| Hidden layer 1 | 256              |
+| Hidden layer 2 | 64               |
+| Output classes | 5                |
+| Activation     | ReLU             |
+| Dropout 1      | 0.30             |
+| Dropout 2      | 0.20             |
+| Loss           | CrossEntropyLoss |
+| Optimizer      | Adam             |
+| Learning rate  | 1e-3             |
+| Weight decay   | 1e-4             |
+| Batch size     | 32               |
+| Epochs         | 30               |
+
+The best checkpoint is selected using validation MAP@3.
+
+---
+
+# Model 2 — BERT Multiple Choice
+
+The second model is a pretrained **BERT-base-uncased** multiple-choice model.
+
+## Model
+
+```text
+bert-base-uncased
+```
+
+The model is loaded using:
+
+```python
+AutoModelForMultipleChoice
+```
+
+## MCQ Representation
+
+Each question is converted into five prompt-option pairs:
+
+```text
+Prompt + Option A
+Prompt + Option B
+Prompt + Option C
+Prompt + Option D
+Prompt + Option E
+```
+
+The resulting representation has the form:
+
+```text
+batch × choices × sequence_length
+```
+
+For this project:
+
+```text
+choices = 5
+sequence_length = 128
+```
+
+Therefore, one MCQ is represented as:
+
+```text
+[5, 128]
+```
+
+## Tokenization
+
+BERT uses its pretrained WordPiece tokenizer:
+
+```python
+AutoTokenizer.from_pretrained("bert-base-uncased")
+```
+
+Configuration:
+
+```text
+max_length = 128
+truncation = True
+padding = "max_length"
+```
+
+## Training Configuration
+
+| Parameter               | Value             |
+| ----------------------- | ----------------- |
+| Model                   | bert-base-uncased |
+| Maximum sequence length | 128               |
+| Learning rate           | 2e-5              |
+| Weight decay            | 0.01              |
+| Train batch size        | 16                |
+| Evaluation batch size   | 16                |
+| Epochs                  | 15                |
+| Seed                    | 42                |
+| Data seed               | 42                |
+| Best metric             | MAP@3             |
+
+Training is performed using the Hugging Face `Trainer` API.
+
+Weights & Biases is used to track the experiment.
+
+---
+
+# Model 3 — RoBERTa Multiple Choice
+
+The third and final model is **RoBERTa-base**.
+
+## Model
+
+```text
+roberta-base
+```
+
+The model is loaded using:
+
+```python
+AutoModelForMultipleChoice
+```
+
+## Tokenization
+
+RoBERTa uses its byte-level BPE tokenizer:
+
+```python
+AutoTokenizer.from_pretrained("roberta-base")
+```
+
+Each MCQ is again represented as five prompt-option sequences:
+
+```text
+Prompt + Option A
+Prompt + Option B
+Prompt + Option C
+Prompt + Option D
+Prompt + Option E
+```
+
+Each sequence is truncated/padded to:
+
+```text
+128 tokens
+```
+
+Therefore, one MCQ has the shape:
+
+```text
+[5, 128]
+```
+
+## Training Configuration
+
+| Parameter               | Value                      |
+| ----------------------- | -------------------------- |
+| Model                   | roberta-base               |
+| Task                    | 5-class MCQ classification |
+| Maximum sequence length | 128                        |
+| Learning rate           | 1.5e-5                     |
+| Weight decay            | 0.01                       |
+| Train batch size        | 16                         |
+| Evaluation batch size   | 16                         |
+| Epochs                  | 20                         |
+| Seed                    | 42                         |
+| Data seed               | 42                         |
+| Best metric             | MAP@3                      |
+
+Training is performed using the Hugging Face `Trainer` API and experiment metrics are logged to Weights & Biases.
+
+---
+
+# Evaluation
+
+The following metrics are used:
+
+* Accuracy
+* Macro F1
+* MAP@3
+
+## MAP@3
+
+MAP@3 is the primary competition metric.
+
+For each question, only the top three predictions are considered.
+
+If the correct answer is:
+
+```text
+Rank 1 → score = 1
+Rank 2 → score = 1/2
+Rank 3 → score = 1/3
+Not in Top-3 → score = 0
+```
+
+The final MAP@3 is the mean of these scores across all evaluated questions.
+
+---
+
+# Final Validation Results
+
+The final notebook compares the three model families using the same validation split.
+
+| Model                   | Accuracy | Macro F1 |    MAP@3 |
+| ----------------------- | -------: | -------: | -------: |
+| TF-IDF + Neural Network | 1.000000 | 1.000000 | 1.000000 |
+| RoBERTa-base            | 1.000000 | 1.000000 | 1.000000 |
+| BERT-base               | 0.997159 | 0.997019 | 0.998580 |
+
+These are **validation results**, not Kaggle leaderboard scores.
+
+The final notebook explicitly selects:
+
+```text
+RoBERTa-base
+```
+
+as the final model.
+
+---
+
+# Final Kaggle Submission
+
+The final inference pipeline generates three model-specific submission files:
+
+```text
+submission_model1.csv
+submission_model2.csv
+submission_model3.csv
+```
+
+Corresponding to:
+
+```text
+submission_model1.csv → TF-IDF + Neural Network
+submission_model2.csv → BERT-base
+submission_model3.csv → RoBERTa-base
+```
+
+The final model selection logic selects:
+
+```text
+RoBERTa-base
+```
+
+and copies its submission to:
+
+```text
+submission.csv
+```
+
+The submission follows the required Kaggle format:
+
+```text
+id,prediction
+```
+
+where `prediction` contains the three ranked answer choices separated by spaces.
+
+Example:
+
+```text
+A C E
+```
+
+---
+
+# Kaggle Result
+
+The best recorded Kaggle submission achieved:
+
+| Metric           |           Result |
+| ---------------- | ---------------: |
+| Best MAP@3       |      **0.76599** |
+| Leaderboard Rank |           **51** |
+| Submission       | `submission.csv` |
+
+The Kaggle leaderboard score is kept separate from the validation metrics reported above.
+
+---
+
+# Model Comparison
+
+The project demonstrates the progression from sparse lexical features to contextual Transformer representations:
+
+```text
+TF-IDF
+  |
+  v
+Sparse lexical representation
+  |
+  v
+TF-IDF + Neural Network
+  |
+  v
+Nonlinear learned representation
+  |
+  v
+BERT
+  |
+  v
+Contextual Transformer representation
+  |
+  v
+RoBERTa
+  |
+  v
+Final selected model
+```
+
+The TF-IDF model provides a computationally simple baseline and scratch deep learning approach.
+
+BERT and RoBERTa provide contextual representations through Transformer self-attention and are formulated naturally as multiple-choice classification models.
+
+---
+
+# Experiment Tracking
+
+Weights & Biases is used for experiment tracking.
+
+Project:
+
+```text
+DL-23f3004113-notebook-t22026
+```
+
+The three principal runs are:
+
+```text
+TFIDF-NeuralNetwork
+BERT-FineTuning
+RoBERTa-FineTuning
+```
+
+The experiments track common evaluation metrics including:
+
+* Accuracy
+* Macro F1
+* MAP@3
+
+---
+
+# Error Analysis
+
+The final notebook includes:
+
+* Classification reports
+* Confusion matrices
+* Incorrect prediction inspection
+* Validation prediction analysis
+
+For incorrect predictions, the prompt, candidate options, ground-truth answer and predicted answer can be inspected.
+
+This allows errors to be examined in terms of:
+
+* Lexical overlap
+* Contextual understanding
+* Incorrect option ranking
+* Model-specific prediction behaviour
+
+---
+
+# Deployment
+
+A RoBERTa-based Smart MCQ Solver was also deployed using Hugging Face Spaces.
+
+The application accepts:
+
+* A question
+* Five answer options
+
+and returns the predicted answer and top-3 probabilities.
+
+Deployment: 
+https://ayushsur2003-smart-mcq-roberta-demo.hf.space/?__theme=system&deep_link=H6W6tcSqHg4
+
+
+```text
+Hugging Face Space:
+ayushsur2003/smart-mcq-roberta-demo
+```
+
+---
+
+# Repository Structure
+
+The repository follows a modular structure separating datasets, notebooks, source code, model-related prediction artifacts and reports.
 
 ```text
 Smart_MCQ_Solver_Challenge/
 │
 ├── data/
-│   ├── train.csv
-│   └── test.csv
-│
-├── notebooks/
-│   ├── milestone1.ipynb
-│   ├── milestone2.ipynb
-│   ├── milestone3.ipynb
-│   ├── milestone4.ipynb
-│   └── milestone5.ipynb
-│
-├── src/
+│   ├── sample_submission.csv
+│   ├── test.csv
+│   └── train.csv
 │
 ├── models/
-│   ├── deberta/
-│   └── roberta/
+│   ├── .gitkeep
+│   ├── bert_pretrained_submission.csv
+│   ├── roberta_submission.csv
+│   └── tfidf_nn_predictions.csv
+│
+├── notebooks/
+│   ├── Final_Notebook.ipynb
+│   ├── Milestone-1.ipynb
+│   ├── Milestone-2.ipynb
+│   ├── Milestone-3.ipynb
+│   ├── Milestone-4.ipynb
+│   └── Milestone-5.ipynb
 │
 ├── reports/
+│   ├── 23f3004113_DG_T22026.pdf
+│   └── model_comparison.md
 │
-├── submission.csv
+├── src/
+│   ├── Roberta_model.py
+│   ├── bert_model.py
+│   ├── inference.py
+│   ├── preprocessing.py
+│   ├── tfidf_baseline.py
+│   ├── tfidf_nn.py
+│   └── utils.py
 │
 ├── README.md
-│
 └── requirements.txt
 ```
 
----
+### Important Note
 
-## Milestone Progress
+The `models/` directory currently contains prediction/submission artifacts rather than the full BERT/RoBERTa checkpoint directories.
 
-### Milestone 1 (Completed)
-
-#### Topics Covered
-
-- Frequency Distribution Analysis
-- Text Cleaning and Preprocessing
-- Stop Word Removal
-- Vocabulary Size Computation
-- TF-IDF Vectorization
-- Cosine Similarity
-- MAP@3 Evaluation Metric
-- Majority Class Baseline
-- TF-IDF Similarity Ranking Pipeline
-
-#### Tasks Completed
-
-- Calculated answer distribution statistics
-- Computed vocabulary size after preprocessing
-- Generated TF-IDF feature space
-- Measured cosine similarity between prompts and answer options
-- Implemented MAP@3 calculations
-- Developed Majority Class Baseline
-- Built a TF-IDF-based ranking pipeline
-- Submitted Milestone 1 responses
-
-**Status:** Completed
+The final notebook trains and saves model checkpoints during execution, while the repository keeps the code and generated prediction artifacts required for the project submission.
 
 ---
 
-### Milestone 2 (Completed)
+# Source Code Organization
 
-#### Topics Covered
+## `src/preprocessing.py`
 
-- Hugging Face Datasets
-- Hugging Face Transformers
-- Sentence Transformers (MiniLM)
-- Dense Vector Retrieval
-- Zero-shot Classification
-- FLAN-T5 Small Language Model
-- Prompt Engineering
-- Modular Python Package Design
+Contains reusable preprocessing functionality used to prepare the MCQ data.
 
-#### Tasks Completed
+## `src/tfidf_baseline.py`
 
-- Loaded datasets using the Hugging Face Datasets library
-- Created combined text features using the `.map()` function
-- Computed dataset statistics and text lengths
-- Implemented semantic retrieval using MiniLM sentence embeddings
-- Ranked answer options using cosine similarity
-- Compared TF-IDF and MiniLM retrieval performance
-- Implemented Zero-shot Classification using `facebook/bart-large-mnli`
-- Compared Softmax and Independent Sigmoid (`multi_label=True`) scoring
-- Loaded and used `google/flan-t5-small`
-- Generated answers through prompt engineering
-- Refactored reusable code into modular Python files
-- Organized the project into reusable components
-- Submitted Milestone 2 responses
+Contains the classical TF-IDF baseline implementation.
 
-**Status:** Completed
+This is retained as a baseline/reference approach and is **not the final neural model**.
 
----
+## `src/tfidf_nn.py`
 
-### Milestone 3 (Completed)
+Contains the custom TF-IDF + Neural Network architecture.
 
-#### Topics Covered
+The model follows:
 
-- Transformer Architectures
-- Self-Attention Mechanism
-- Tokenization Strategies
-- BERT Embeddings
-- Multiple Choice Question Modeling
-- Hugging Face Tokenizers
+```text
+27,489 → 256 → 64 → 5
+```
 
-#### Tasks Completed
+## `src/bert_model.py`
 
-- Explored transformer-based architectures for MCQ solving
-- Implemented tokenization pipelines for multiple-choice inputs
-- Constructed formatted prompt-option pairs
-- Performed tensor reshaping for multiple-choice models
-- Analyzed model input representations
-- Prepared data pipelines for transformer-based inference
+Contains BERT multiple-choice model loading and related functionality.
 
-**Status:** Completed
+## `src/Roberta_model.py`
+
+Contains RoBERTa model loading and related functionality.
+
+## `src/inference.py`
+
+Contains inference and submission-generation functionality.
+
+## `src/utils.py`
+
+Contains reusable utility functions, including evaluation-related functionality.
 
 ---
 
-### Milestone 4 (Completed)
+# Technologies Used
 
-#### Topics Covered
+## Programming Language
 
-- AutoModelForMultipleChoice
-- Multiple Choice Tokenization
-- LoRA (Low-Rank Adaptation)
-- Parameter-Efficient Fine-Tuning (PEFT)
-- Hugging Face Trainer API
-- Tiny LoRA Fine-Tuning
-- Softmax-Based Inference
-- Multiple Choice Classification with BERT
+* Python
 
-#### Tasks Completed
+## Machine Learning / Deep Learning
 
-- Encoded answer labels for multiple-choice classification
-- Generated tokenized inputs for five answer options
-- Prepared batch tensors for multiple-choice transformer models
-- Performed forward passes using `AutoModelForMultipleChoice`
-- Computed supervised loss tensors
-- Applied LoRA adapters to the BERT multiple-choice model
-- Calculated trainable LoRA parameters
-- Prepared Hugging Face datasets for training
-- Fine-tuned the model using Hugging Face Trainer
-- Performed inference on fine-tuned models
-- Converted logits into probabilities using Softmax
-- Predicted answer probabilities for multiple-choice options
+* PyTorch
+* scikit-learn
+* NumPy
+* Pandas
 
-**Status:** Completed
+## NLP / Transformers
 
----
+* Hugging Face Transformers
+* Hugging Face Datasets
+* Tokenizers
 
-### Milestone 5 (Completed)
+## Experiment Tracking
 
-#### Topics Covered
+* Weights & Biases
 
-- Fine-Tuned Transformer Model Inference
-- DeBERTa Multiple Choice Classification
-- RoBERTa Multiple Choice Classification
-- Softmax Probability Estimation
-- Probability Ensembling Techniques
-- Weighted Model Ensembling
-- Test-Time Augmentation (TTA)
-- Confidence Score Analysis
-- Top-3 Ranking Generation
-- Kaggle Submission Pipeline
-- MAP@3 Evaluation
+## Development Environment
 
-#### Tasks Completed
+* Kaggle Notebooks
+* Jupyter Notebook
+* GitHub
 
-- Loaded fine-tuned DeBERTa and RoBERTa multiple-choice models.
-- Performed inference on individual MCQ samples.
-- Converted model logits into class probabilities using Softmax.
-- Compared predictions from DeBERTa and RoBERTa models.
-- Implemented simple probability averaging for model ensembling.
-- Implemented weighted probability averaging using:
-  - DeBERTa weight = 0.70
-  - RoBERTa weight = 0.30
-- Generated ranked Top-3 answer predictions in Kaggle submission format.
-- Built the complete weighted ensemble inference pipeline for the test dataset.
-- Generated `submission.csv` files compatible with the Kaggle competition requirements.
-- Applied Test-Time Augmentation (TTA) using instruction-augmented prompts.
-- Compared Top-1 predictions between:
-  - DeBERTa
-  - Weighted Ensemble
-- Computed confidence gains obtained after ensembling.
-- Compared ordered Top-3 rankings before and after ensembling.
-- Evaluated weighted ensemble predictions using MAP@3 on validation samples.
-- Performed model confidence and ranking analyses across multiple samples.
+## Deployment
 
-#### Models Used
-
-- Fine-Tuned DeBERTa Multiple Choice Model
-- Fine-Tuned RoBERTa Multiple Choice Model
-- Weighted Ensemble Model (DeBERTa + RoBERTa)
-
-**Status:** Completed
+* Hugging Face Spaces
 
 ---
 
-## Technologies Used
+# Key Learnings
 
-### Programming Language
+This project provided practical experience with:
 
-- Python
+* NLP preprocessing
+* TF-IDF representations
+* Sparse feature spaces
+* Feed-forward neural networks
+* PyTorch training loops
+* Transformer architectures
+* BERT and RoBERTa tokenization
+* Multiple-choice Transformer modeling
+* Hugging Face `Trainer`
+* Model evaluation
+* MAP@3 ranking
+* Experiment tracking with Weights & Biases
+* Kaggle inference and submission generation
+* Model deployment
 
-### Libraries and Frameworks
-
-- Pandas
-- NumPy
-- Scikit-learn
-- PyTorch
-- Hugging Face Datasets
-- Hugging Face Transformers
-- Sentence Transformers
-- PEFT (LoRA)
-- Accelerate
-- Datasets
-- Evaluate
-
-### Additional Libraries
-
-- PEFT
-- Transformers
-- Accelerate
-- Evaluate
-- Tokenizers
-
-### Deep Learning Models
-
-- BERT Base Uncased
-- MiniLM Sentence Transformer
-- FLAN-T5 Small
-- BART Large MNLI
-- LoRA Fine-Tuned BERT Multiple Choice Model
-- Fine-Tuned DeBERTa Multiple Choice Model
-- Fine-Tuned RoBERTa Multiple Choice Model
-- Weighted Ensemble Model (DeBERTa + RoBERTa)
-
-### Development Environment
-
-- Kaggle Notebooks
-- GitHub
-- Jupyter Notebook
+The project demonstrates the progression from traditional lexical methods to neural and contextual Transformer-based approaches.
 
 ---
 
-## Evaluation Metric
+# Future Work
 
-The competition uses **Mean Average Precision at 3 (MAP@3)**.
+Potential improvements include:
 
-For each question, models predict the top three most probable answer options. Higher scores are awarded when the correct answer appears earlier in the ranked predictions.
+* Better hyperparameter optimization
+* Calibration of model probabilities
+* More extensive error analysis
+* Ensemble methods
+* Retrieval-Augmented Generation
+* Instruction-based approaches
+* Larger Transformer architectures
+* Improved ranking strategies
 
----
-
-## Kaggle Competition
-
-**Competition:** Smart MCQ Solver Challenge
-
-The project is developed and evaluated using the Kaggle competition environment provided as part of the IIT Madras BS Degree program.
-
----
-
-## Future Work
-
-Future enhancements of this project may include:
-
-- Retrieval-Augmented Generation (RAG)
-- Larger Transformer Models
-- Ensemble-Based Ranking Models
-- Advanced Parameter-Efficient Fine-Tuning Techniques
-- Improved Multiple-Choice Reasoning Models
-- Hybrid Retrieval and Generation Pipelines
-- Competition Score Optimization Strategies
+These are considered future improvements and are **not part of the final submitted pipeline**.
 
 ---
 
-## Author
+# Author
 
 **Ayush Sur**
 
-- IIT Madras BS Degree in Data Science and Applications
-- Roll Number: 23f3004113
+IIT Madras BS Degree in Data Science and Applications
+
+Roll Number: `23f3004113`
+
+Kaggle ID: `ayushsur2003`
