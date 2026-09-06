@@ -606,7 +606,7 @@ The application accepts:
 and returns the predicted answer and top-3 probabilities.
 
 Deployment: 
-https://ayushsur2003-smart-mcq-roberta-demo.hf.space/?__theme=system&deep_link=H6W6tcSqHg4
+https://ayushsur2003-smart-mcq-roberta-demo.hf.space
 
 
 ```text
@@ -739,7 +739,6 @@ Contains reusable utility functions, including evaluation-related functionality.
 ## Deployment
 
 * Hugging Face Spaces
-  Hugging Face Deployed Link:- https://ayushsur2003-smart-mcq-roberta-demo.hf.space
 
 ---
 
